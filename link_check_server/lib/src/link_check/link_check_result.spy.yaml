@@ -1,0 +1,19 @@
+class: LinkCheckResult
+
+fields:
+  ### URL submitted by the client.
+  requestedUrl: String
+  ### Final URL after redirects, when available.
+  finalUrl: String?
+  ### HTTP status code from the origin, when a response was received.
+  statusCode: int?
+  ### Round-trip time in milliseconds.
+  responseTimeMs: int
+  ### Whether the checked URL uses HTTPS (after redirects).
+  isHttps: bool
+  ### True when an HTTP response with a valid status code was received.
+  isReachable: bool
+  ### Validation or network error message, when the check did not succeed.
+  error: String?
+  ### Server timestamp when the check completed.
+  checkedAt: DateTime
