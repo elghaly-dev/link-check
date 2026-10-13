@@ -12,11 +12,19 @@ The `linkCheck.check` endpoint performs an outbound HTTP(S) probe on a user-supp
 - **Response size cap** — response bodies are drained up to a fixed byte limit
 - **Rate limiting** — per-client sliding window (by remote address)
 
+## Flutter web UI
+
+The app in `link_check_flutter` calls `client.linkCheck.check` and shows status, timing, HTTPS, redirects, and server-side validation errors.
+
+```bash
+serverpod start      # from repo root — launches server + web app
+```
+
 ## Development
 
 ```bash
 cd link_check_server
 serverpod generate   # after model/endpoint changes
 dart test
-serverpod start      # from repo root
+cd ../link_check_flutter && flutter test
 ```
