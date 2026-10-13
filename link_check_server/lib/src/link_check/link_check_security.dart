@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'link_check_config.dart';
 
@@ -45,7 +46,9 @@ class LinkCheckSecurity {
     }
 
     if (!uri.hasScheme) {
-      throw LinkCheckSecurityException('URL must include a scheme (http or https).');
+      throw LinkCheckSecurityException(
+        'URL must include a scheme (http or https).',
+      );
     }
 
     final scheme = uri.scheme.toLowerCase();
@@ -54,18 +57,19 @@ class LinkCheckSecurity {
     }
 
     if (uri.userInfo.isNotEmpty) {
-      throw LinkCheckSecurityException('URLs with embedded credentials are not allowed.');
+      throw LinkCheckSecurityException(
+        'URLs with embedded credentials are not allowed.',
+      );
     }
 
     if (!uri.hasAuthority || uri.host.isEmpty) {
       throw LinkCheckSecurityException('URL must include a host name.');
     }
 
-    if (uri.fragment.isNotEmpty) {
-      // Fragments are not sent to servers; strip for fetching but keep validation on host.
-    }
+    final normalizedHost = normalizeHost(uri.host);
+    uri = uri.replace(host: normalizedHost);
 
-    final host = uri.host.toLowerCase();
+    final host = normalizedHost.toLowerCase();
     if (_blockedHostnames.contains(host)) {
       throw LinkCheckSecurityException('Target host is not allowed.');
     }
@@ -76,28 +80,47 @@ class LinkCheckSecurity {
       throw LinkCheckSecurityException('Target host is not allowed.');
     }
 
-    if (uri.hasPort) {
-      final port = uri.port;
-      if (port <= 0 || port > 65535) {
-        throw LinkCheckSecurityException('URL port is out of range.');
-      }
-    }
-
+    _assertAllowedPort(uri);
     _assertHostAllowed(host);
 
     return uri;
   }
 
-  /// Resolves [uri]'s host and ensures every address is on the public Internet.
-  Future<void> assertResolvableHostIsPublic(Uri uri) async {
-    final host = uri.host;
+  /// Strips trailing dots and decodes alternative IPv4 host encodings.
+  String normalizeHost(String host) {
+    var value = host;
+    if (value.endsWith('.')) {
+      value = value.substring(0, value.length - 1);
+    }
+    if (value.isEmpty) {
+      return value;
+    }
+
+    final decimal = _tryParseDecimalIpv4Host(value);
+    if (decimal != null) {
+      return decimal;
+    }
+
+    final dotted = _tryParseAlternativeDottedIpv4(value);
+    if (dotted != null) {
+      return dotted;
+    }
+
+    return value;
+  }
+
+  /// Resolves [uri] once and returns a single public address used for TCP connect.
+  Future<InternetAddress> resolveConnectAddress(Uri uri) async {
+    final normalized = validateRequestUrl(uri.toString());
+    final host = normalized.host;
 
     final literal = InternetAddress.tryParse(host);
     if (literal != null) {
-      if (_isBlockedAddress(literal)) {
+      final canonical = _canonicalAddress(literal);
+      if (_isBlockedAddress(canonical)) {
         throw LinkCheckSecurityException('Target address is not allowed.');
       }
-      return;
+      return canonical;
     }
 
     List<InternetAddress> addresses;
@@ -117,26 +140,84 @@ class LinkCheckSecurity {
     }
 
     for (final address in addresses) {
-      if (_isBlockedAddress(address)) {
-        throw LinkCheckSecurityException('Target resolves to a disallowed address.');
+      final canonical = _canonicalAddress(address);
+      if (!_isBlockedAddress(canonical)) {
+        return canonical;
       }
     }
+
+    throw LinkCheckSecurityException(
+      'Target resolves to a disallowed address.',
+    );
+  }
+
+  /// Resolves [uri]'s host and ensures every address is on the public Internet.
+  Future<void> assertResolvableHostIsPublic(Uri uri) async {
+    await resolveConnectAddress(uri);
   }
 
   void _assertHostAllowed(String host) {
     final literal = InternetAddress.tryParse(host);
-    if (literal != null && _isBlockedAddress(literal)) {
+    if (literal != null && _isBlockedAddress(_canonicalAddress(literal))) {
       throw LinkCheckSecurityException('Target address is not allowed.');
     }
 
-    // Block common cloud metadata host patterns without DNS.
     if (host == '169.254.169.254') {
       throw LinkCheckSecurityException('Target address is not allowed.');
     }
   }
 
+  void _assertAllowedPort(Uri uri) {
+    final port = _effectivePort(uri);
+    if (port != 80 && port != 443) {
+      throw LinkCheckSecurityException('Only ports 80 and 443 are allowed.');
+    }
+  }
+
+  int _effectivePort(Uri uri) {
+    if (uri.hasPort) {
+      return uri.port;
+    }
+    return uri.scheme == 'https' ? 443 : 80;
+  }
+
   /// Returns true if [address] is private, loopback, link-local, or otherwise internal.
-  bool isBlockedAddress(InternetAddress address) => _isBlockedAddress(address);
+  bool isBlockedAddress(InternetAddress address) =>
+      _isBlockedAddress(_canonicalAddress(address));
+
+  InternetAddress _canonicalAddress(InternetAddress address) {
+    if (address.type != InternetAddressType.IPv6) {
+      return address;
+    }
+    final mapped = _ipv4MappedAddress(address);
+    return mapped ?? address;
+  }
+
+  InternetAddress? _ipv4MappedAddress(InternetAddress address) {
+    if (address.type != InternetAddressType.IPv6) {
+      return null;
+    }
+    final raw = address.rawAddress;
+    final isMapped =
+        raw[0] == 0 &&
+        raw[1] == 0 &&
+        raw[2] == 0 &&
+        raw[3] == 0 &&
+        raw[4] == 0 &&
+        raw[5] == 0 &&
+        raw[6] == 0 &&
+        raw[7] == 0 &&
+        raw[8] == 0 &&
+        raw[9] == 0 &&
+        raw[10] == 0xff &&
+        raw[11] == 0xff;
+    if (!isMapped) {
+      return null;
+    }
+    return InternetAddress.fromRawAddress(
+      Uint8List.fromList([raw[12], raw[13], raw[14], raw[15]]),
+    );
+  }
 
   bool _isBlockedAddress(InternetAddress address) {
     if (address.isLoopback || address.isLinkLocal || address.isMulticast) {
@@ -164,5 +245,45 @@ class LinkCheckSecurity {
     }
 
     return false;
+  }
+
+  String? _tryParseDecimalIpv4Host(String host) {
+    if (!RegExp(r'^\d+$').hasMatch(host)) {
+      return null;
+    }
+    final value = int.tryParse(host);
+    if (value == null || value < 0 || value > 0xFFFFFFFF) {
+      return null;
+    }
+    return '${(value >> 24) & 0xff}.${(value >> 16) & 0xff}.${(value >> 8) & 0xff}.${value & 0xff}';
+  }
+
+  String? _tryParseAlternativeDottedIpv4(String host) {
+    final parts = host.split('.');
+    if (parts.length != 4) {
+      return null;
+    }
+    final octets = <int>[];
+    for (final part in parts) {
+      final octet = _parseIpv4Octet(part);
+      if (octet == null) {
+        return null;
+      }
+      octets.add(octet);
+    }
+    return octets.join('.');
+  }
+
+  int? _parseIpv4Octet(String part) {
+    if (part.isEmpty) {
+      return null;
+    }
+    if (part.startsWith('0x') || part.startsWith('0X')) {
+      return int.tryParse(part.substring(2), radix: 16);
+    }
+    if (part.startsWith('0') && part.length > 1) {
+      return int.tryParse(part, radix: 8);
+    }
+    return int.tryParse(part, radix: 10);
   }
 }

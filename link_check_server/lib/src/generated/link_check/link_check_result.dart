@@ -17,6 +17,7 @@ abstract class LinkCheckResult
   LinkCheckResult._({
     required this.requestedUrl,
     this.finalUrl,
+    required this.redirectHops,
     this.statusCode,
     required this.responseTimeMs,
     required this.isHttps,
@@ -28,6 +29,7 @@ abstract class LinkCheckResult
   factory LinkCheckResult({
     required String requestedUrl,
     String? finalUrl,
+    required int redirectHops,
     int? statusCode,
     required int responseTimeMs,
     required bool isHttps,
@@ -40,6 +42,7 @@ abstract class LinkCheckResult
     return LinkCheckResult(
       requestedUrl: jsonSerialization['requestedUrl'] as String,
       finalUrl: jsonSerialization['finalUrl'] as String?,
+      redirectHops: jsonSerialization['redirectHops'] as int,
       statusCode: jsonSerialization['statusCode'] as int?,
       responseTimeMs: jsonSerialization['responseTimeMs'] as int,
       isHttps: _is.BoolJsonExtension.fromJson(jsonSerialization['isHttps']),
@@ -58,6 +61,9 @@ abstract class LinkCheckResult
 
   /// Final URL after redirects, when available.
   String? finalUrl;
+
+  /// Number of HTTP redirect hops followed (0 when none).
+  int redirectHops;
 
   /// HTTP status code from the origin, when a response was received.
   int? statusCode;
@@ -83,6 +89,7 @@ abstract class LinkCheckResult
   LinkCheckResult copyWith({
     String? requestedUrl,
     String? finalUrl,
+    int? redirectHops,
     int? statusCode,
     int? responseTimeMs,
     bool? isHttps,
@@ -96,6 +103,7 @@ abstract class LinkCheckResult
       '__className__': 'LinkCheckResult',
       'requestedUrl': requestedUrl,
       if (finalUrl != null) 'finalUrl': finalUrl,
+      'redirectHops': redirectHops,
       if (statusCode != null) 'statusCode': statusCode,
       'responseTimeMs': responseTimeMs,
       'isHttps': isHttps,
@@ -111,6 +119,7 @@ abstract class LinkCheckResult
       '__className__': 'LinkCheckResult',
       'requestedUrl': requestedUrl,
       if (finalUrl != null) 'finalUrl': finalUrl,
+      'redirectHops': redirectHops,
       if (statusCode != null) 'statusCode': statusCode,
       'responseTimeMs': responseTimeMs,
       'isHttps': isHttps,
@@ -132,6 +141,7 @@ class _LinkCheckResultImpl extends LinkCheckResult {
   _LinkCheckResultImpl({
     required String requestedUrl,
     String? finalUrl,
+    required int redirectHops,
     int? statusCode,
     required int responseTimeMs,
     required bool isHttps,
@@ -141,6 +151,7 @@ class _LinkCheckResultImpl extends LinkCheckResult {
   }) : super._(
          requestedUrl: requestedUrl,
          finalUrl: finalUrl,
+         redirectHops: redirectHops,
          statusCode: statusCode,
          responseTimeMs: responseTimeMs,
          isHttps: isHttps,
@@ -156,6 +167,7 @@ class _LinkCheckResultImpl extends LinkCheckResult {
   LinkCheckResult copyWith({
     String? requestedUrl,
     Object? finalUrl = _Undefined,
+    int? redirectHops,
     Object? statusCode = _Undefined,
     int? responseTimeMs,
     bool? isHttps,
@@ -166,6 +178,7 @@ class _LinkCheckResultImpl extends LinkCheckResult {
     return LinkCheckResult(
       requestedUrl: requestedUrl ?? this.requestedUrl,
       finalUrl: finalUrl is String? ? finalUrl : this.finalUrl,
+      redirectHops: redirectHops ?? this.redirectHops,
       statusCode: statusCode is int? ? statusCode : this.statusCode,
       responseTimeMs: responseTimeMs ?? this.responseTimeMs,
       isHttps: isHttps ?? this.isHttps,

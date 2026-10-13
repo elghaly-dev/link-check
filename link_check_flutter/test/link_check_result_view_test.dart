@@ -8,6 +8,7 @@ void main() {
     final result = LinkCheckResult(
       requestedUrl: 'https://example.com',
       finalUrl: 'https://example.com/',
+      redirectHops: 1,
       statusCode: 200,
       responseTimeMs: 142,
       isHttps: true,
@@ -25,13 +26,16 @@ void main() {
 
     expect(find.textContaining('200 OK'), findsOneWidget);
     expect(find.text('142 ms'), findsOneWidget);
+    expect(find.text('1'), findsWidgets);
     expect(find.text('Yes'), findsOneWidget);
     expect(find.text('https://example.com'), findsOneWidget);
+    expect(find.text('https://example.com/'), findsOneWidget);
   });
 
   testWidgets('shows validation error from result payload', (tester) async {
     final result = LinkCheckResult(
       requestedUrl: 'http://127.0.0.1/',
+      redirectHops: 0,
       statusCode: null,
       responseTimeMs: 0,
       isHttps: false,
@@ -50,5 +54,22 @@ void main() {
 
     expect(find.text('Target address is not allowed.'), findsOneWidget);
     expect(find.textContaining('blocked or failed'), findsOneWidget);
+  });
+
+  testWidgets('shows clear message for transport failures', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: LinkCheckResultView(
+            transportError:
+                'Network error: could not reach the link-check server. '
+                'Check your connection and try again.',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.textContaining('Network error'), findsOneWidget);
+    expect(find.textContaining('Could not reach server'), findsOneWidget);
   });
 }

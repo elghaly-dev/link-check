@@ -28,3 +28,25 @@ serverpod generate   # after model/endpoint changes
 dart test
 cd ../link_check_flutter && flutter test
 ```
+
+## Serverpod Cloud (scloud)
+
+Deploy from `link_check_server` after you sign in with the Cloud CLI. Do not put secrets in the repo; use `scloud secret set` for sensitive values and `scloud password set` for Serverpod passwords.
+
+```bash
+cd link_check_server
+dart pub global activate serverpod_cloud_cli
+export PATH="$PATH:$HOME/.pub-cache/bin"
+
+# First time: creates/links the Cloud project (you complete login in the browser)
+scloud auth login
+scloud launch -p link-check
+
+# Later deploys
+scloud deploy --await
+
+# Optional: validate packaging without uploading
+scloud deploy --wet-run --show-files
+```
+
+See [SECURITY.md](SECURITY.md) for the SSRF control matrix and proof tests.

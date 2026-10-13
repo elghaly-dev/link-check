@@ -11,6 +11,7 @@ class LinkCheckProbeResult {
     required this.isHttps,
     required this.responseTimeMs,
     required this.checkedAt,
+    required this.redirectHops,
     this.finalUrl,
     this.statusCode,
     this.isReachable = false,
@@ -19,6 +20,7 @@ class LinkCheckProbeResult {
 
   final String requestedUrl;
   final String? finalUrl;
+  final int redirectHops;
   final int? statusCode;
   final int responseTimeMs;
   final bool isHttps;
@@ -49,6 +51,7 @@ class LinkCheckService {
         isHttps: false,
         responseTimeMs: 0,
         checkedAt: started,
+        redirectHops: 0,
         error: e.message,
       );
     }
@@ -61,6 +64,7 @@ class LinkCheckService {
         isHttps: uri.scheme == 'https',
         responseTimeMs: DateTime.now().difference(started).inMilliseconds,
         checkedAt: started,
+        redirectHops: 0,
         error: e.message,
       );
     }
@@ -81,6 +85,7 @@ class LinkCheckService {
           isHttps: uri.scheme == 'https',
           responseTimeMs: DateTime.now().difference(started).inMilliseconds,
           checkedAt: started,
+          redirectHops: 0,
           error: 'Request timed out.',
         ),
       );
@@ -90,6 +95,7 @@ class LinkCheckService {
         isHttps: uri.scheme == 'https',
         responseTimeMs: DateTime.now().difference(started).inMilliseconds,
         checkedAt: started,
+        redirectHops: 0,
         error: e.message,
       );
     } on SocketException {
@@ -98,6 +104,7 @@ class LinkCheckService {
         isHttps: uri.scheme == 'https',
         responseTimeMs: DateTime.now().difference(started).inMilliseconds,
         checkedAt: started,
+        redirectHops: 0,
         error: 'Could not connect to host.',
       );
     } on HandshakeException {
@@ -106,6 +113,7 @@ class LinkCheckService {
         isHttps: uri.scheme == 'https',
         responseTimeMs: DateTime.now().difference(started).inMilliseconds,
         checkedAt: started,
+        redirectHops: 0,
         error: 'TLS handshake failed.',
       );
     } on HttpException catch (e) {
@@ -114,6 +122,7 @@ class LinkCheckService {
         isHttps: uri.scheme == 'https',
         responseTimeMs: DateTime.now().difference(started).inMilliseconds,
         checkedAt: started,
+        redirectHops: 0,
         error: e.message,
       );
     } finally {
@@ -128,22 +137,38 @@ class LinkCheckService {
   }) async {
     var current = initialUri;
     HttpClientResponse? response;
+    var redirectHops = 0;
 
     for (var hop = 0; hop <= LinkCheckConfig.maxRedirects; hop++) {
-      _security.validateRequestUrl(current.toString());
-      await _security.assertResolvableHostIsPublic(current);
+      current = _security.validateRequestUrl(current.toString());
+      final connectAddress = await _security.resolveConnectAddress(current);
 
-      response = await _sendRequest(client, current);
+      response = await _sendRequest(client, current, connectAddress);
       final status = response.statusCode;
 
-      if (_isRedirect(status) && hop < LinkCheckConfig.maxRedirects) {
+      if (_isRedirect(status)) {
+        if (hop >= LinkCheckConfig.maxRedirects) {
+          await _drainLimited(response);
+          return LinkCheckProbeResult(
+            requestedUrl: initialUri.toString(),
+            finalUrl: current.toString(),
+            redirectHops: redirectHops,
+            statusCode: status,
+            isHttps: current.scheme == 'https',
+            responseTimeMs: DateTime.now().difference(started).inMilliseconds,
+            checkedAt: started,
+            isReachable: false,
+            error: 'Too many redirects.',
+          );
+        }
+
         final location = response.headers.value(HttpHeaders.locationHeader);
         await _drainLimited(response);
         if (location == null || location.isEmpty) {
           break;
         }
-        final next = current.resolve(location);
-        current = next;
+        current = current.resolve(location);
+        redirectHops++;
         continue;
       }
 
@@ -158,6 +183,7 @@ class LinkCheckService {
     return LinkCheckProbeResult(
       requestedUrl: initialUri.toString(),
       finalUrl: current.toString(),
+      redirectHops: redirectHops,
       statusCode: statusCode,
       isHttps: current.scheme == 'https',
       responseTimeMs: elapsed,
@@ -166,7 +192,16 @@ class LinkCheckService {
     );
   }
 
-  Future<HttpClientResponse> _sendRequest(HttpClient client, Uri uri) async {
+  Future<HttpClientResponse> _sendRequest(
+    HttpClient client,
+    Uri uri,
+    InternetAddress connectAddress,
+  ) async {
+    client.connectionFactory = (url, proxyHost, proxyPort) {
+      final port = url.hasPort ? url.port : (url.scheme == 'https' ? 443 : 80);
+      return Socket.startConnect(connectAddress, port);
+    };
+
     HttpClientRequest request;
     try {
       request = await client.headUrl(uri);
@@ -174,6 +209,7 @@ class LinkCheckService {
       request = await client.getUrl(uri);
     }
     request.headers.set(HttpHeaders.userAgentHeader, LinkCheckConfig.userAgent);
+    request.followRedirects = false;
     try {
       return await request.close();
     } on HttpException {
@@ -182,6 +218,7 @@ class LinkCheckService {
         HttpHeaders.userAgentHeader,
         LinkCheckConfig.userAgent,
       );
+      getRequest.followRedirects = false;
       return getRequest.close();
     }
   }

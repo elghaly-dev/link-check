@@ -50,10 +50,12 @@ class _LinkCheckScreenState extends State<LinkCheckScreen> {
         _result = result;
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _transportError = e.toString();
+        _transportError =
+            'Network error: could not reach the link-check server. '
+            'Check your connection and try again.';
         _loading = false;
       });
     }

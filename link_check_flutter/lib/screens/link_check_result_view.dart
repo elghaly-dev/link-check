@@ -44,6 +44,7 @@ class LinkCheckResultView extends StatelessWidget {
     }
 
     final tone = _toneFor(data);
+    final finalUrl = data.finalUrl;
     return _Shell(
       tone: tone,
       child: Column(
@@ -66,6 +67,12 @@ class LinkCheckResultView extends StatelessWidget {
           ],
           const SizedBox(height: 12),
           _MetricRow(
+            icon: Icons.alt_route_outlined,
+            label: 'Redirect hops',
+            value: '${data.redirectHops}',
+          ),
+          const SizedBox(height: 12),
+          _MetricRow(
             icon: data.isHttps ? Icons.lock_outline : Icons.lock_open_outlined,
             label: 'HTTPS',
             value: data.isHttps ? 'Yes' : 'No',
@@ -74,11 +81,9 @@ class LinkCheckResultView extends StatelessWidget {
           const Divider(height: 1),
           const SizedBox(height: 16),
           _UrlBlock(label: 'Requested URL', url: data.requestedUrl),
-          if (data.finalUrl != null &&
-              data.finalUrl!.isNotEmpty &&
-              data.finalUrl != data.requestedUrl) ...[
+          if (finalUrl != null && finalUrl.isNotEmpty) ...[
             const SizedBox(height: 12),
-            _UrlBlock(label: 'Final URL (after redirects)', url: data.finalUrl!),
+            _UrlBlock(label: 'Final URL', url: finalUrl),
           ],
           if (data.error != null && data.error!.isNotEmpty) ...[
             const SizedBox(height: 16),

@@ -22,6 +22,7 @@ class LinkCheckEndpoint extends Endpoint {
       return LinkCheckResult(
         requestedUrl: url.trim(),
         finalUrl: null,
+        redirectHops: 0,
         statusCode: null,
         responseTimeMs: 0,
         isHttps: false,
@@ -35,6 +36,7 @@ class LinkCheckEndpoint extends Endpoint {
     return LinkCheckResult(
       requestedUrl: probe.requestedUrl,
       finalUrl: probe.finalUrl,
+      redirectHops: probe.redirectHops,
       statusCode: probe.statusCode,
       responseTimeMs: probe.responseTimeMs,
       isHttps: probe.isHttps,

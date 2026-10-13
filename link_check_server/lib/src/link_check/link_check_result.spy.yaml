@@ -5,6 +5,8 @@ fields:
   requestedUrl: String
   ### Final URL after redirects, when available.
   finalUrl: String?
+  ### Number of HTTP redirect hops followed (0 when none).
+  redirectHops: int
   ### HTTP status code from the origin, when a response was received.
   statusCode: int?
   ### Round-trip time in milliseconds.
