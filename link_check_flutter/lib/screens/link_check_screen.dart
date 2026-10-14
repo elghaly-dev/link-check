@@ -105,7 +105,7 @@ class _LinkCheckScreenState extends State<LinkCheckScreen> {
                           ),
                         )
                       : IconButton(
-                          tooltip: 'Check link',
+                          tooltip: 'Check',
                           onPressed: _runCheck,
                           icon: const Icon(Icons.search),
                         ),
@@ -115,7 +115,7 @@ class _LinkCheckScreenState extends State<LinkCheckScreen> {
               FilledButton.icon(
                 onPressed: _loading ? null : _runCheck,
                 icon: const Icon(Icons.play_arrow_rounded),
-                label: Text(_loading ? 'Checking…' : 'Check link'),
+                label: Text(_loading ? 'Checking…' : 'Check'),
               ),
               const SizedBox(height: 28),
               LinkCheckResultView(
