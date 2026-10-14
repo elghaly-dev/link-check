@@ -2,6 +2,8 @@
 
 Link Check: URL status, response time, and HTTPS check. Serverpod backend with a Flutter web client by [elghaly](https://elghaly.dev/).
 
+Contributors and agents must follow [HOUSE_RULES.md](HOUSE_RULES.md) for public copy, secrets, and PR workflow.
+
 ## Server link-check API
 
 The `linkCheck.check` endpoint performs an outbound HTTP(S) probe on a user-supplied URL. Safeguards include:

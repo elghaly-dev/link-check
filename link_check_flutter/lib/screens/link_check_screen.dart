@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:link_check_client/link_check_client.dart';
 
 import '../client.dart';
+import '../copy/public_copy.dart';
 import 'link_check_result_view.dart';
 
 class LinkCheckScreen extends StatefulWidget {
@@ -12,9 +13,7 @@ class LinkCheckScreen extends StatefulWidget {
 }
 
 class _LinkCheckScreenState extends State<LinkCheckScreen> {
-  final _urlController = TextEditingController(
-    text: 'https://example.com',
-  );
+  final _urlController = TextEditingController(text: 'https://example.com');
 
   LinkCheckResult? _result;
   String? _transportError;
@@ -76,7 +75,7 @@ class _LinkCheckScreenState extends State<LinkCheckScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Check any public HTTP or HTTPS link for status, timing, and TLS — without leaving your browser.',
+                PublicCopy.appTagline,
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                   height: 1.45,
