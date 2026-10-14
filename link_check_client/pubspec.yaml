@@ -1,0 +1,10 @@
+name: link_check_client
+description: Starting point for a Serverpod client.
+
+environment:
+  sdk: '^3.12.2'
+
+resolution: workspace
+
+dependencies:
+  serverpod_client: 4.0.4

@@ -1,0 +1,41 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: '4.0.4'
+      SERVERPOD_PASSWORD_database: 'GcRzxrZ87Pp8QZ9oG6DkJqB1tviHKiCd'
+      SERVERPOD_PASSWORD_redis: 'FlVF0mzh8ebxpYvqBJnwZY_XHFPhXInA'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.4'
+
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Install Serverpod CLI
+        run: |
+          dart install serverpod_cli@$VERSION
+          # `dart install` puts executables in the Dart data home, which is not
+          # on the PATH of a GitHub runner.
+          echo "${XDG_STATE_HOME:-$HOME/.local/state}/Dart/install/bin" >> "$GITHUB_PATH"
+
+      - name: Run Serverpod generator
+        working-directory: link_check_server
+        run: serverpod generate
+
+      - name: Run tests
+        working-directory: link_check_server
+        run: dart test
