@@ -53,7 +53,7 @@ class LinkCheckSecurity {
 
     final scheme = uri.scheme.toLowerCase();
     if (scheme != 'http' && scheme != 'https') {
-      throw LinkCheckSecurityException('Only http and https URLs are allowed.');
+      throw LinkCheckSecurityException('Use an http or https URL.');
     }
 
     if (uri.userInfo.isNotEmpty) {
@@ -170,7 +170,7 @@ class LinkCheckSecurity {
   void _assertAllowedPort(Uri uri) {
     final port = _effectivePort(uri);
     if (port != 80 && port != 443) {
-      throw LinkCheckSecurityException('Only ports 80 and 443 are allowed.');
+      throw LinkCheckSecurityException('Use port 80 or 443.');
     }
   }
 

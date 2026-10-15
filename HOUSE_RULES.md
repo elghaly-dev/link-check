@@ -19,7 +19,7 @@ These rules apply to every change in this repository (code, copy, commits, logs,
 - **No street addresses, cities, or countries** on any public page. Remove any that already exist.
 - **Contact line** (exact wording on public pages):
 
-  `Email first: support@elghaly.dev. Calls only by appointment.`
+  `Email first: support@elghaly.dev. Calls by appointment.`
 
 ## Banned visible words
 
@@ -32,6 +32,8 @@ The following must **not** appear in user-visible text (any case). Use the sugge
 | guarantee | promise |
 | audit | review |
 | launched | released |
+| only | (reword the sentence) |
+| trading | (reword, e.g. "copy-mirroring") |
 
 ## Content preservation
 

@@ -9,7 +9,7 @@ void main() {
   test('contact line matches HOUSE_RULES.md exactly', () {
     expect(
       PublicCopy.contactLine,
-      'Email first: support@elghaly.dev. Calls only by appointment.',
+      'Email first: support@elghaly.dev. Calls by appointment.',
     );
   });
 
@@ -27,7 +27,7 @@ void main() {
 
     final visible = _collectVisibleStrings(tester);
     final banned = RegExp(
-      r'\b(live|profit|guarantee|audit|launched)\b',
+      r'\b(live|profit|guarantee|audit|launched|only|trading)\b',
       caseSensitive: false,
     );
 
@@ -49,7 +49,7 @@ void main() {
       File('${root.path}/web/manifest.json'),
     ];
     final banned = RegExp(
-      r'\b(live|profit|guarantee|audit|launched)\b',
+      r'\b(live|profit|guarantee|audit|launched|only|trading)\b',
       caseSensitive: false,
     );
 
