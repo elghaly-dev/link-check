@@ -24,7 +24,11 @@ const _blockedHostnames = {
 
 /// Validates URLs and resolved addresses to mitigate SSRF and internal network access.
 class LinkCheckSecurity {
-  const LinkCheckSecurity();
+  /// [lookup] replaces DNS resolution (used by tests); defaults to the system
+  /// resolver.
+  const LinkCheckSecurity({this.lookup});
+
+  final Future<List<InternetAddress>> Function(String host)? lookup;
 
   /// Parses and validates [rawUrl]. Returns a normalized [Uri] on success.
   Uri validateRequestUrl(String rawUrl) {
@@ -53,7 +57,7 @@ class LinkCheckSecurity {
 
     final scheme = uri.scheme.toLowerCase();
     if (scheme != 'http' && scheme != 'https') {
-      throw LinkCheckSecurityException('Only http and https URLs are allowed.');
+      throw LinkCheckSecurityException('Use an http or https URL.');
     }
 
     if (uri.userInfo.isNotEmpty) {
@@ -125,10 +129,11 @@ class LinkCheckSecurity {
 
     List<InternetAddress> addresses;
     try {
-      addresses = await InternetAddress.lookup(
-        host,
-        type: InternetAddressType.any,
-      ).timeout(LinkCheckConfig.connectTimeout);
+      final resolver =
+          lookup ??
+          (String name) =>
+              InternetAddress.lookup(name, type: InternetAddressType.any);
+      addresses = await resolver(host).timeout(LinkCheckConfig.connectTimeout);
     } on SocketException {
       throw LinkCheckSecurityException('Could not resolve host name.');
     } on TimeoutException {
@@ -170,7 +175,7 @@ class LinkCheckSecurity {
   void _assertAllowedPort(Uri uri) {
     final port = _effectivePort(uri);
     if (port != 80 && port != 443) {
-      throw LinkCheckSecurityException('Only ports 80 and 443 are allowed.');
+      throw LinkCheckSecurityException('Use port 80 or 443.');
     }
   }
 

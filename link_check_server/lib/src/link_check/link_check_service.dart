@@ -34,11 +34,19 @@ class LinkCheckService {
   LinkCheckService({
     LinkCheckSecurity? security,
     HttpClient Function()? httpClientFactory,
+    Future<ConnectionTask<Socket>> Function(InternetAddress address, int port)?
+    socketConnector,
   }) : _security = security ?? const LinkCheckSecurity(),
-       _httpClientFactory = httpClientFactory ?? (() => HttpClient());
+       _httpClientFactory = httpClientFactory ?? (() => HttpClient()),
+       _socketConnector = socketConnector ?? Socket.startConnect;
 
   final LinkCheckSecurity _security;
   final HttpClient Function() _httpClientFactory;
+  final Future<ConnectionTask<Socket>> Function(
+    InternetAddress address,
+    int port,
+  )
+  _socketConnector;
 
   Future<LinkCheckProbeResult> check(String rawUrl) async {
     final started = DateTime.now();
@@ -116,14 +124,15 @@ class LinkCheckService {
         redirectHops: 0,
         error: 'TLS handshake failed.',
       );
-    } on HttpException catch (e) {
+    } on HttpException {
+      // Never forward the upstream/library message: it can echo URLs or hosts.
       return LinkCheckProbeResult(
         requestedUrl: uri.toString(),
         isHttps: uri.scheme == 'https',
         responseTimeMs: DateTime.now().difference(started).inMilliseconds,
         checkedAt: started,
         redirectHops: 0,
-        error: e.message,
+        error: 'The request failed.',
       );
     } finally {
       client.close(force: true);
@@ -199,7 +208,7 @@ class LinkCheckService {
   ) async {
     client.connectionFactory = (url, proxyHost, proxyPort) {
       final port = url.hasPort ? url.port : (url.scheme == 'https' ? 443 : 80);
-      return Socket.startConnect(connectAddress, port);
+      return _socketConnector(connectAddress, port);
     };
 
     HttpClientRequest request;

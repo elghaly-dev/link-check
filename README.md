@@ -2,11 +2,13 @@
 
 Link Check: URL status, response time, and HTTPS check. Serverpod backend with a Flutter web client by [elghaly](https://elghaly.dev/).
 
+Contributors and agents must follow [HOUSE_RULES.md](HOUSE_RULES.md) for public copy, secrets, and PR workflow.
+
 ## Server link-check API
 
 The `linkCheck.check` endpoint performs an outbound HTTP(S) probe on a user-supplied URL. Safeguards include:
 
-- **URL validation** — only `http`/`https`, no embedded credentials, length limits
+- **URL validation** — `http`/`https` schemes, no embedded credentials, length limits
 - **SSRF / internal network blocking** — rejects localhost, RFC1918, link-local, metadata, and related targets (hostname and resolved IPs, including redirect hops)
 - **Timeouts** — connect and overall request deadlines
 - **Response size cap** — response bodies are drained up to a fixed byte limit

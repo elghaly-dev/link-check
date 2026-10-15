@@ -101,6 +101,68 @@ void main() {
       expect(security.isBlockedAddress(InternetAddress('::1')), isTrue);
     });
 
+    test('blocks every range listed in SECURITY.md row 2 (edges included)', () {
+      const blocked = [
+        '127.0.0.1', '127.255.255.254', // 127/8
+        '10.0.0.0', '10.255.255.255', // 10/8
+        '172.16.0.1', '172.31.255.255', // 172.16/12
+        '192.168.0.1', '192.168.255.255', // 192.168/16
+        '169.254.0.1', '169.254.169.254', // 169.254/16
+        '100.64.0.1', '100.127.255.255', // 100.64/10
+        '0.0.0.0', '0.1.2.3', // 0/8
+        'fc00::1', 'fdff:ffff::1', // fc00::/7
+        'fe80::1', 'febf::1', // fe80::/10
+        '::1', // loopback
+        '::ffff:10.0.0.1', '::ffff:192.168.1.1', '::ffff:100.64.0.1', // mapped
+      ];
+      for (final ip in blocked) {
+        expect(
+          security.isBlockedAddress(InternetAddress(ip)),
+          isTrue,
+          reason: '$ip should be blocked',
+        );
+      }
+    });
+
+    test('does not block public neighbours just outside blocked ranges', () {
+      const allowed = [
+        '172.15.255.255', '172.32.0.1', // outside 172.16/12
+        '192.167.255.255', '192.169.0.1', // outside 192.168/16
+        '100.63.255.255', '100.128.0.1', // outside 100.64/10
+        '169.253.255.255', '169.255.0.1', // outside 169.254/16
+        '11.0.0.1', '9.255.255.255', // outside 10/8
+        '1.1.1.1', '8.8.8.8',
+        '2606:4700:4700::1111', // public IPv6
+        'fbff::1', 'fe00::1', // outside fc00::/7 and fe80::/10
+        '::ffff:8.8.8.8', // mapped public
+      ];
+      for (final ip in allowed) {
+        expect(
+          security.isBlockedAddress(InternetAddress(ip)),
+          isFalse,
+          reason: '$ip should be allowed',
+        );
+      }
+    });
+
+    test('rejects blocked IP literals in URLs, including IPv6', () {
+      for (final url in [
+        'http://172.16.5.5/',
+        'http://100.64.0.1/',
+        'http://[fc00::1]/',
+        'http://[fe80::1]/',
+        'http://[::ffff:10.0.0.1]/',
+        'http://192.168.0.10/',
+        'http://10.1.2.3/',
+      ]) {
+        expect(
+          () => security.validateRequestUrl(url),
+          throwsA(isA<LinkCheckSecurityException>()),
+          reason: url,
+        );
+      }
+    });
+
     test('blocks IPv4-mapped loopback', () {
       expect(
         security.isBlockedAddress(InternetAddress('::ffff:127.0.0.1')),
@@ -117,6 +179,57 @@ void main() {
         Uri.parse('https://1.1.1.1/'),
       );
       expect(address.address, '1.1.1.1');
+    });
+
+    test(
+      'hostname resolves via lookup and returns the first public address',
+      () async {
+        var calls = 0;
+        final pinned = LinkCheckSecurity(
+          lookup: (host) async {
+            calls++;
+            expect(host, 'pin.example.test');
+            return [
+              InternetAddress('10.0.0.7'),
+              InternetAddress('93.184.216.34'),
+              InternetAddress('1.1.1.1'),
+            ];
+          },
+        );
+        final address = await pinned.resolveConnectAddress(
+          Uri.parse('https://pin.example.test/'),
+        );
+        expect(address.address, '93.184.216.34');
+        expect(calls, 1, reason: 'one lookup per resolveConnectAddress call');
+      },
+    );
+
+    test('hostname resolving only to blocked addresses is rejected', () async {
+      final pinned = LinkCheckSecurity(
+        lookup: (_) async => [
+          InternetAddress('127.0.0.1'),
+          InternetAddress('fc00::5'),
+          InternetAddress('::ffff:192.168.0.1'),
+        ],
+      );
+      await expectLater(
+        pinned.resolveConnectAddress(Uri.parse('http://rebind.example.test/')),
+        throwsA(
+          isA<LinkCheckSecurityException>().having(
+            (e) => e.message,
+            'message',
+            allOf(isNot(contains('127.0.0.1')), isNot(contains('192.168'))),
+          ),
+        ),
+      );
+    });
+
+    test('empty DNS answer is rejected', () async {
+      final pinned = LinkCheckSecurity(lookup: (_) async => []);
+      await expectLater(
+        pinned.resolveConnectAddress(Uri.parse('http://empty.example.test/')),
+        throwsA(isA<LinkCheckSecurityException>()),
+      );
     });
   });
 
@@ -157,6 +270,29 @@ void main() {
 
   group('LinkCheckSecurity — ports and limits (SSRF #6)', () {
     const security = LinkCheckSecurity();
+
+    test('uses the reworded, UI-safe validation messages', () {
+      expect(
+        () => security.validateRequestUrl('ftp://example.com'),
+        throwsA(
+          isA<LinkCheckSecurityException>().having(
+            (e) => e.message,
+            'message',
+            'Use an http or https URL.',
+          ),
+        ),
+      );
+      expect(
+        () => security.validateRequestUrl('http://example.com:8080/'),
+        throwsA(
+          isA<LinkCheckSecurityException>().having(
+            (e) => e.message,
+            'message',
+            'Use port 80 or 443.',
+          ),
+        ),
+      );
+    });
 
     test('rejects non-standard ports', () {
       expect(

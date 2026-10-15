@@ -1,11 +1,11 @@
 {
-    "name": "link_check_flutter",
-    "short_name": "link_check_flutter",
+    "name": "Link Check · elghaly",
+    "short_name": "Link Check",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Check public HTTP and HTTPS links for status, timing, and TLS.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
